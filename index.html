@@ -19,12 +19,19 @@
 
       localStorage.setItem("user_number", number);
 
-      var url = "https://script.google.com/macros/s/AKfycbw0ioRnohoTWij1W-sJkcXhfHJPupG2rOM6s0wb69ZReSHFC0J4Cgo5PWKliI-_Bs5RIQ/exec?number=" + encodeURIComponent(number);
-      fetch(url).then(() => {
-        window.location.href = "second.html";
-      }).catch(() => {
-        alert("Failed to save. Try again.");
-      });
+      var url = "https://script.google.com/macros/s/AKfycbxoBoORBHmjMF87Uqzj7qaz4gwk-PTKk9E2DD0s330yQGlpTBI_obo5IXtDox3Q8M5Z/exec?number=" + encodeURIComponent(number);
+      fetch(url)
+        .then(response => response.text())
+        .then(data => {
+          if (data.includes("Saved")) {
+            window.location.href = "second.html";
+          } else {
+            alert("Failed to save number. Try again.");
+          }
+        })
+        .catch(() => {
+          alert("Error contacting server.");
+        });
     }
   </script>
 </head>
