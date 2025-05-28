@@ -486,19 +486,12 @@
         };
         
         const TIMER_DURATION = 10; // 10 seconds
-        const MAX_CLICKS = 7; // Changed from 3 to 5
+        const MAX_CLICKS = 5; // 5 tries maximum
         
         // Initialize from saved state on page load
         window.addEventListener('load', () => {
             loadTaskStates();
             updateAllTaskUI();
-            
-            // Continue any active timers
-            Object.keys(taskStates).forEach(taskId => {
-                if (taskStates[taskId].timerActive && !taskStates[taskId].completed) {
-                    startBackgroundTimer(taskId);
-                }
-            });
         });
 
         // Save state when page is about to unload
@@ -537,7 +530,9 @@
                     const parsed = JSON.parse(saved);
                     Object.keys(taskStates).forEach(taskId => {
                         if (parsed[taskId]) {
-                            taskStates[taskId] = { ...taskStates[taskId], ...parsed[taskId] };
+                            // Only load these properties to maintain click count and limit status
+                            taskStates[taskId].clickCount = parsed[taskId].clickCount || 0;
+                            taskStates[taskId].limitCrossed = parsed[taskId].limitCrossed || false;
                         }
                     });
                 } catch (e) {
@@ -547,7 +542,18 @@
         }
 
         function saveTaskStates() {
-            localStorage.setItem('taskStates', JSON.stringify(taskStates));
+            // Only save clickCount and limitCrossed to maintain attempts tracking
+            const stateToSave = {
+                task1: {
+                    clickCount: taskStates.task1.clickCount,
+                    limitCrossed: taskStates.task1.limitCrossed
+                },
+                task2: {
+                    clickCount: taskStates.task2.clickCount,
+                    limitCrossed: taskStates.task2.limitCrossed
+                }
+            };
+            localStorage.setItem('taskStates', JSON.stringify(stateToSave));
         }
 
         function startTask(taskId) {
@@ -584,40 +590,20 @@
             const redirectUrl = taskId === 'task1' ? 'https://www.google.com' : 'https://www.youtube.com';
             window.open(redirectUrl, '_blank');
             
-            // If timer was paused, resume it
-            if (taskState.timeSpent > 0 && taskState.timeSpent < TIMER_DURATION && !taskState.timerActive) {
-                resumeTimer(taskId);
-            } else if (!taskState.timerActive) {
-                // Start new timer
-                taskState.startTime = Date.now();
-                taskState.timerActive = true;
-                taskState.timeSpent = 0;
-                
-                // Update UI
-                updateTaskButton(taskId, '⏰ Timer running in background...');
-                updateTaskCard(taskId, 'active');
-                
-                // Start background timer check
-                startBackgroundTimer(taskId);
-            }
-            
-            updateClickCounter(taskId);
-            saveTaskStates();
-        }
-
-        function resumeTimer(taskId) {
-            const taskState = taskStates[taskId];
-            const remainingTime = TIMER_DURATION - taskState.timeSpent;
-            
-            // Reset start time to continue from where it was paused
-            taskState.startTime = Date.now() - (taskState.timeSpent * 1000);
+            // Start new timer
+            taskState.startTime = Date.now();
             taskState.timerActive = true;
+            taskState.timeSpent = 0;
             
-            updateTaskButton(taskId, `⏰ Resuming... ${remainingTime}s left`);
+            // Update UI
+            updateTaskButton(taskId, '⏰ Timer running in background...');
             updateTaskCard(taskId, 'active');
             
             // Start background timer check
             startBackgroundTimer(taskId);
+            
+            updateClickCounter(taskId);
+            saveTaskStates();
         }
 
         function startBackgroundTimer(taskId) {
@@ -645,21 +631,6 @@
             }, 1000);
         }
 
-        function continueBackgroundTimer(taskId) {
-            const taskState = taskStates[taskId];
-            
-            if (!taskState.startTime) return;
-            
-            const timeSpent = Math.floor((Date.now() - taskState.startTime) / 1000);
-            
-            if (timeSpent >= TIMER_DURATION) {
-                completeTask(taskId);
-            } else {
-                taskState.timeSpent = timeSpent;
-                updateTaskButton(taskId, `⏰ Running... ${TIMER_DURATION - timeSpent}s`);
-            }
-        }
-
         function completeTask(taskId) {
             const taskState = taskStates[taskId];
             
@@ -670,12 +641,12 @@
             updateTaskButton(taskId, '✅ Task Completed');
             updateTaskCard(taskId, 'completed');
             
-            // Enable next task or download - only when tasks are completed, not when limit is crossed
+            // Enable next task or download
             if (taskId === 'task1' && !taskStates.task2.limitCrossed) {
                 enableTask('task2');
             }
             
-            // Enable download only if both tasks are completed (not just limit crossed)
+            // Enable download only if both tasks are completed
             if (taskStates.task1.completed && taskStates.task2.completed) {
                 enableDownload();
             }
@@ -688,9 +659,6 @@
             updateTaskCard(taskId, 'limit-crossed');
             document.getElementById(`${taskId}-btn`).className = 'task-button btn-limit-crossed';
             document.getElementById(`${taskId}-btn`).disabled = true;
-            
-            // Note: Removed automatic enabling of next task or download when limit is crossed
-            // Download will only be enabled when both tasks are actually completed
             
             saveTaskStates();
         }
@@ -718,7 +686,7 @@
             
             downloadBtn.disabled = false;
             downloadBtn.className = 'task-button btn-success';
-            downloadBtn.innerHTML = '<span>Download File</span>'; // Changed text
+            downloadBtn.innerHTML = '<span>Download File</span>';
             downloadCard.classList.add('pulse-animation');
         }
 
@@ -751,25 +719,35 @@
             Object.keys(taskStates).forEach(taskId => {
                 const taskState = taskStates[taskId];
                 
-                if (taskState.completed) {
-                    completeTask(taskId);
-                } else if (taskState.limitCrossed) {
+                // Reset completion status on refresh
+                taskState.completed = false;
+                taskState.timerActive = false;
+                taskState.startTime = null;
+                taskState.timeSpent = 0;
+                
+                if (taskState.limitCrossed) {
                     setLimitCrossed(taskId);
                 } else if (taskState.clickCount > 0) {
                     showClicksRemaining(taskId);
+                    // Reset button to initial state if not limit crossed
+                    updateTaskButton(taskId, 'Click And Wait 10 Sec');
+                    document.getElementById(`${taskId}-btn`).className = 'task-button btn-primary';
+                    document.getElementById(`${taskId}-btn`).disabled = false;
                 }
             });
             
-            // Only enable task2 if task1 is completed
-            if (taskStates.task1.completed && !taskStates.task2.limitCrossed && !taskStates.task2.completed) {
-                enableTask('task2');
-            } else {
-                // Keep task2 locked if task1 not completed
+            // Special handling for task2 - keep locked if task1 not completed
+            if (!taskStates.task1.completed) {
                 const task2Btn = document.getElementById('task2-btn');
                 task2Btn.disabled = true;
                 task2Btn.className = 'task-button btn-locked';
                 updateTaskButton('task2', '🔒 Complete Task 1 First');
             }
+            
+            // Disable download button by default
+            document.getElementById('download-btn').disabled = true;
+            document.getElementById('download-btn').className = 'task-button btn-locked';
+            updateTaskButton('download', '🔒 Complete All Tasks First');
         }
 
         function downloadFile() {
