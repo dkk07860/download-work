@@ -1,44 +1,826 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Verify Mobile</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script>
-    window.onload = function() {
-      if (localStorage.getItem("user_number")) {
-        window.location.href = "second.html";
-      }
-    };
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download File - Complete Tasks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    function verifyNumber() {
-      var number = document.getElementById("number").value;
-      if (number === "") {
-        alert("Please enter your mobile number");
-        return;
-      }
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
 
-      localStorage.setItem("user_number", number);
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(102, 126, 234, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(240, 147, 251, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(118, 75, 162, 0.2) 0%, transparent 70%);
+            pointer-events: none;
+        }
 
-      var url = "https://script.google.com/macros/s/AKfycbxoBoORBHmjMF87Uqzj7qaz4gwk-PTKk9E2DD0s330yQGlpTBI_obo5IXtDox3Q8M5Z/exec?number=" + encodeURIComponent(number);
-      fetch(url)
-        .then(response => response.text())
-        .then(data => {
-          if (data.includes("Saved")) {
-            window.location.href = "second.html";
-          } else {
-            alert("Failed to save number. Try again.");
-          }
-        })
-        .catch(() => {
-          alert("Error contacting server.");
-        });
-    }
-  </script>
+        .main-container {
+            background: rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(30px);
+            border-radius: 28px;
+            box-shadow: 
+                0 40px 80px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            padding: 50px;
+            max-width: 480px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 34px;
+            font-weight: 900;
+            margin-bottom: 12px;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, #ffffff, #e2e8f0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 16px;
+            font-weight: 500;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .tasks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .task-card {
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.15) 0%, 
+                rgba(255, 255, 255, 0.05) 100%);
+            border-radius: 22px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 
+                0 16px 40px rgba(0, 0, 0, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .task-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .task-card.active::before {
+            opacity: 1;
+            background: linear-gradient(90deg, #667eea, #f093fb);
+        }
+
+        .task-card.completed::before {
+            background: linear-gradient(90deg, #48bb78, #38a169);
+            opacity: 1;
+        }
+
+        .task-card.limit-crossed::before {
+            background: linear-gradient(90deg, #e53e3e, #c53030);
+            opacity: 1;
+        }
+
+        .task-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 
+                0 24px 60px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .task-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .task-description {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 1.6;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .task-button {
+            width: 100%;
+            padding: 18px 28px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        .task-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.6s;
+        }
+
+        .task-button:hover::before {
+            left: 100%;
+        }
+
+        .task-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .task-button:disabled::before {
+            display: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 48px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: #ffffff;
+            box-shadow: 0 12px 32px rgba(72, 187, 120, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-success:hover:not(:disabled) {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 48px rgba(72, 187, 120, 0.5);
+        }
+
+        .btn-completed {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: #ffffff;
+            cursor: default;
+            box-shadow: 0 8px 24px rgba(72, 187, 120, 0.3);
+        }
+
+        .btn-locked {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.5);
+            box-shadow: none;
+        }
+
+        .btn-limit-crossed {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            color: #ffffff;
+            box-shadow: 0 12px 32px rgba(229, 62, 62, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: not-allowed;
+        }
+
+        .timer-in-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timer-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-weight: 900;
+            font-size: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .pulse-animation {
+            animation: pulseGlow 2.5s infinite;
+        }
+
+        @keyframes pulseGlow {
+            0% { 
+                transform: scale(1);
+                box-shadow: 0 16px 40px rgba(102, 126, 234, 0.3);
+            }
+            50% { 
+                transform: scale(1.03);
+                box-shadow: 0 24px 60px rgba(102, 126, 234, 0.5);
+            }
+            100% { 
+                transform: scale(1);
+                box-shadow: 0 16px 40px rgba(102, 126, 234, 0.3);
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.8s ease-out both;
+        }
+
+        @keyframes fadeInUp {
+            from { 
+                opacity: 0; 
+                transform: translateY(40px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0);
+            }
+        }
+
+        .note-text {
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #667eea;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            text-align: center;
+            margin-top: 14px;
+            font-weight: 600;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .checkmark {
+            color: #48bb78;
+            font-size: 20px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .icon {
+            font-size: 24px;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (max-width: 600px) {
+            .main-container {
+                padding: 35px 25px;
+                margin: 15px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+            
+            .task-button {
+                padding: 16px 24px;
+                font-size: 14px;
+            }
+
+            .task-card {
+                padding: 20px;
+            }
+        }
+
+        .floating-orbs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .orb:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            top: 10%;
+            left: -10%;
+            animation-delay: 0s;
+        }
+
+        .orb:nth-child(2) {
+            width: 200px;
+            height: 200px;
+            bottom: 20%;
+            right: -5%;
+            animation-delay: 7s;
+        }
+
+        .orb:nth-child(3) {
+            width: 150px;
+            height: 150px;
+            top: 60%;
+            left: 70%;
+            animation-delay: 14s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            25% { transform: translate(50px, -50px) rotate(90deg); }
+            50% { transform: translate(-30px, 30px) rotate(180deg); }
+            75% { transform: translate(-50px, -20px) rotate(270deg); }
+        }
+    </style>
 </head>
 <body>
-  <h2>Enter Mobile Number</h2>
-  <input type="text" id="number" placeholder="Enter mobile number" required>
-  <br><br>
-  <button onclick="verifyNumber()">Verify</button>
+    <div class="floating-orbs">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+    
+    <div class="main-container">
+        <div class="header fade-in">
+            <h1>📥 Download File</h1>
+            <p>Complete All Tasks Then Download File</p>
+        </div>
+
+        <div class="tasks-container">
+            <!-- Task 1 -->
+            <div class="task-card fade-in" id="task1-card" style="animation-delay: 0.1s">
+                <div class="task-header">
+                    <div class="task-title">
+                        <span class="icon">🎯</span>
+                        <span>Task 1</span>
+                    </div>
+                </div>
+                <div class="task-description">
+                    Click and wait for 10 seconds to complete (5 tries only)
+                </div>
+                <button class="task-button btn-primary" id="task1-btn" onclick="startTask('task1')">
+                    <span id="task1-text">Click And Wait 10 Sec</span>
+                </button>
+                <div id="task1-note" class="note-text">
+                    Click counter: <span id="task1-clicks">0</span>/5
+                </div>
+            </div>
+
+            <!-- Task 2 -->
+            <div class="task-card fade-in" id="task2-card" style="animation-delay: 0.2s">
+                <div class="task-header">
+                    <div class="task-title">
+                        <span class="icon">🎯</span>
+                        <span>Task 2</span>
+                    </div>
+                </div>
+                <div class="task-description">
+                    Complete second task after Task 1 (5 tries only)
+                </div>
+                <button class="task-button btn-locked" id="task2-btn" onclick="startTask('task2')" disabled>
+                    <span id="task2-text">🔒 Complete Task 1 First</span>
+                </button>
+                <div id="task2-note" class="note-text">
+                    Click counter: <span id="task2-clicks">0</span>/5
+                </div>
+            </div>
+
+            <!-- Download Button -->
+            <div class="task-card fade-in" id="download-card" style="animation-delay: 0.3s">
+                <div class="task-header">
+                    <div class="task-title">
+                        <span class="icon">💾</span>
+                        <span>Download File</span>
+                    </div>
+                </div>
+                <div class="task-description">
+                    Download file after completing all tasks
+                </div>
+                <button class="task-button btn-locked" id="download-btn" onclick="downloadFile()" disabled>
+                    <span>🔒 Complete All Tasks First</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let taskStates = {
+            task1: {
+                completed: false,
+                clickCount: 0,
+                limitCrossed: false,
+                timerActive: false,
+                startTime: null,
+                timeSpent: 0
+            },
+            task2: {
+                completed: false,
+                clickCount: 0,
+                limitCrossed: false,
+                timerActive: false,
+                startTime: null,
+                timeSpent: 0
+            }
+        };
+        
+        const TIMER_DURATION = 10; // 10 seconds
+        const MAX_CLICKS = 7; // Changed from 3 to 5
+        
+        // Initialize from saved state on page load
+        window.addEventListener('load', () => {
+            loadTaskStates();
+            updateAllTaskUI();
+            
+            // Continue any active timers
+            Object.keys(taskStates).forEach(taskId => {
+                if (taskStates[taskId].timerActive && !taskStates[taskId].completed) {
+                    startBackgroundTimer(taskId);
+                }
+            });
+        });
+
+        // Save state when page is about to unload
+        window.addEventListener('beforeunload', () => {
+            saveTaskStates();
+        });
+
+        // Detect when user returns to page
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                // User returned to page
+                Object.keys(taskStates).forEach(taskId => {
+                    if (taskStates[taskId].timerActive && !taskStates[taskId].completed) {
+                        const timeSpent = Math.floor((Date.now() - taskStates[taskId].startTime) / 1000);
+                        
+                        if (timeSpent >= TIMER_DURATION) {
+                            // Timer completed in background
+                            completeTask(taskId);
+                        } else {
+                            // Timer still running, pause it
+                            taskStates[taskId].timeSpent = timeSpent;
+                            taskStates[taskId].timerActive = false;
+                            updateTaskButton(taskId, `⏸️ Paused - ${TIMER_DURATION - timeSpent}s left`);
+                            showClicksRemaining(taskId);
+                        }
+                    }
+                });
+                saveTaskStates();
+            }
+        });
+
+        function loadTaskStates() {
+            const saved = localStorage.getItem('taskStates');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    Object.keys(taskStates).forEach(taskId => {
+                        if (parsed[taskId]) {
+                            taskStates[taskId] = { ...taskStates[taskId], ...parsed[taskId] };
+                        }
+                    });
+                } catch (e) {
+                    console.log('Error loading saved state:', e);
+                }
+            }
+        }
+
+        function saveTaskStates() {
+            localStorage.setItem('taskStates', JSON.stringify(taskStates));
+        }
+
+        function startTask(taskId) {
+            const taskState = taskStates[taskId];
+            
+            // Check if task2 is being accessed before task1 completion
+            if (taskId === 'task2' && !taskStates.task1.completed) {
+                alert('Please complete Task 1 first!');
+                return;
+            }
+            
+            // Check if limit crossed
+            if (taskState.limitCrossed || taskState.clickCount >= MAX_CLICKS) {
+                return;
+            }
+            
+            // Check if task already completed
+            if (taskState.completed) {
+                return;
+            }
+            
+            // Increment click count
+            taskState.clickCount++;
+            
+            // Check if this click crosses the limit
+            if (taskState.clickCount >= MAX_CLICKS && !taskState.completed) {
+                taskState.limitCrossed = true;
+                setLimitCrossed(taskId);
+                saveTaskStates();
+                return;
+            }
+            
+            // Open redirect site first
+            const redirectUrl = taskId === 'task1' ? 'https://www.google.com' : 'https://www.youtube.com';
+            window.open(redirectUrl, '_blank');
+            
+            // If timer was paused, resume it
+            if (taskState.timeSpent > 0 && taskState.timeSpent < TIMER_DURATION && !taskState.timerActive) {
+                resumeTimer(taskId);
+            } else if (!taskState.timerActive) {
+                // Start new timer
+                taskState.startTime = Date.now();
+                taskState.timerActive = true;
+                taskState.timeSpent = 0;
+                
+                // Update UI
+                updateTaskButton(taskId, '⏰ Timer running in background...');
+                updateTaskCard(taskId, 'active');
+                
+                // Start background timer check
+                startBackgroundTimer(taskId);
+            }
+            
+            updateClickCounter(taskId);
+            saveTaskStates();
+        }
+
+        function resumeTimer(taskId) {
+            const taskState = taskStates[taskId];
+            const remainingTime = TIMER_DURATION - taskState.timeSpent;
+            
+            // Reset start time to continue from where it was paused
+            taskState.startTime = Date.now() - (taskState.timeSpent * 1000);
+            taskState.timerActive = true;
+            
+            updateTaskButton(taskId, `⏰ Resuming... ${remainingTime}s left`);
+            updateTaskCard(taskId, 'active');
+            
+            // Start background timer check
+            startBackgroundTimer(taskId);
+        }
+
+        function startBackgroundTimer(taskId) {
+            // Check timer every second
+            const timerInterval = setInterval(() => {
+                const taskState = taskStates[taskId];
+                
+                if (!taskState.timerActive || taskState.completed) {
+                    clearInterval(timerInterval);
+                    return;
+                }
+                
+                const timeSpent = Math.floor((Date.now() - taskState.startTime) / 1000);
+                taskState.timeSpent = timeSpent;
+                
+                if (timeSpent >= TIMER_DURATION) {
+                    clearInterval(timerInterval);
+                    completeTask(taskId);
+                } else {
+                    const remaining = TIMER_DURATION - timeSpent;
+                    updateTaskButton(taskId, `⏰ Running... ${remaining}s left`);
+                }
+                
+                saveTaskStates();
+            }, 1000);
+        }
+
+        function continueBackgroundTimer(taskId) {
+            const taskState = taskStates[taskId];
+            
+            if (!taskState.startTime) return;
+            
+            const timeSpent = Math.floor((Date.now() - taskState.startTime) / 1000);
+            
+            if (timeSpent >= TIMER_DURATION) {
+                completeTask(taskId);
+            } else {
+                taskState.timeSpent = timeSpent;
+                updateTaskButton(taskId, `⏰ Running... ${TIMER_DURATION - timeSpent}s`);
+            }
+        }
+
+        function completeTask(taskId) {
+            const taskState = taskStates[taskId];
+            
+            taskState.completed = true;
+            taskState.timerActive = false;
+            taskState.timeSpent = TIMER_DURATION;
+            
+            updateTaskButton(taskId, '✅ Task Completed');
+            updateTaskCard(taskId, 'completed');
+            
+            // Enable next task or download - only when tasks are completed, not when limit is crossed
+            if (taskId === 'task1' && !taskStates.task2.limitCrossed) {
+                enableTask('task2');
+            }
+            
+            // Enable download only if both tasks are completed (not just limit crossed)
+            if (taskStates.task1.completed && taskStates.task2.completed) {
+                enableDownload();
+            }
+            
+            saveTaskStates();
+        }
+
+        function setLimitCrossed(taskId) {
+            updateTaskButton(taskId, '❌ Limit Crossed');
+            updateTaskCard(taskId, 'limit-crossed');
+            document.getElementById(`${taskId}-btn`).className = 'task-button btn-limit-crossed';
+            document.getElementById(`${taskId}-btn`).disabled = true;
+            
+            // Note: Removed automatic enabling of next task or download when limit is crossed
+            // Download will only be enabled when both tasks are actually completed
+            
+            saveTaskStates();
+        }
+
+        function enableTask(taskId) {
+            // Only enable task2 if task1 is completed
+            if (taskId === 'task2' && !taskStates.task1.completed) {
+                return;
+            }
+            
+            if (taskStates[taskId].limitCrossed || taskStates[taskId].completed) {
+                return;
+            }
+            
+            const button = document.getElementById(`${taskId}-btn`);
+            button.disabled = false;
+            button.className = 'task-button btn-primary';
+            updateTaskButton(taskId, 'Click And Wait 10 Sec');
+            showClicksRemaining(taskId);
+        }
+
+        function enableDownload() {
+            const downloadBtn = document.getElementById('download-btn');
+            const downloadCard = document.getElementById('download-card');
+            
+            downloadBtn.disabled = false;
+            downloadBtn.className = 'task-button btn-success';
+            downloadBtn.innerHTML = '<span>Download File</span>'; // Changed text
+            downloadCard.classList.add('pulse-animation');
+        }
+
+        function updateTaskButton(taskId, text) {
+            document.getElementById(`${taskId}-text`).innerHTML = text;
+        }
+
+        function updateTaskCard(taskId, className) {
+            const card = document.getElementById(`${taskId}-card`);
+            card.className = `task-card ${className}`;
+            
+            if (className === 'active') {
+                card.classList.add('pulse-animation');
+            } else {
+                card.classList.remove('pulse-animation');
+            }
+        }
+
+        function updateClickCounter(taskId) {
+            document.getElementById(`${taskId}-clicks`).textContent = taskStates[taskId].clickCount;
+        }
+
+        function showClicksRemaining(taskId) {
+            const noteDiv = document.getElementById(`${taskId}-note`);
+            noteDiv.style.display = 'block';
+            updateClickCounter(taskId);
+        }
+
+        function updateAllTaskUI() {
+            Object.keys(taskStates).forEach(taskId => {
+                const taskState = taskStates[taskId];
+                
+                if (taskState.completed) {
+                    completeTask(taskId);
+                } else if (taskState.limitCrossed) {
+                    setLimitCrossed(taskId);
+                } else if (taskState.clickCount > 0) {
+                    showClicksRemaining(taskId);
+                }
+            });
+            
+            // Only enable task2 if task1 is completed
+            if (taskStates.task1.completed && !taskStates.task2.limitCrossed && !taskStates.task2.completed) {
+                enableTask('task2');
+            } else {
+                // Keep task2 locked if task1 not completed
+                const task2Btn = document.getElementById('task2-btn');
+                task2Btn.disabled = true;
+                task2Btn.className = 'task-button btn-locked';
+                updateTaskButton('task2', '🔒 Complete Task 1 First');
+            }
+        }
+
+        function downloadFile() {
+            const element = document.createElement('a');
+            const fileContent = `
+🎉 Congratulations! 🎉
+
+You have successfully completed the tasks!
+
+✅ Task 1: ${taskStates.task1.completed ? 'Completed' : 'Limit Crossed'}
+✅ Task 2: ${taskStates.task2.completed ? 'Completed' : 'Limit Crossed'}
+✅ Download: Ready
+
+This is your reward file.
+Thank you for trying all tasks!
+
+Task 1 Clicks: ${taskStates.task1.clickCount}/5
+Task 2 Clicks: ${taskStates.task2.clickCount}/5
+
+Generated on: ${new Date().toLocaleString()}
+            `;
+            
+            const file = new Blob([fileContent], {type: 'text/plain;charset=utf-8'});
+            element.href = URL.createObjectURL(file);
+            element.download = 'tasks_completed_reward.txt';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+            
+            const downloadBtn = document.getElementById('download-btn');
+            const downloadCard = document.getElementById('download-card');
+            
+            downloadBtn.innerHTML = '<span class="checkmark">✅</span> File Downloaded Successfully';
+            downloadBtn.className = 'task-button btn-completed';
+            downloadCard.classList.remove('pulse-animation');
+            
+            // Reset everything after download
+            setTimeout(() => {
+                if (confirm('Reset all tasks for new attempt?')) {
+                    localStorage.removeItem('taskStates');
+                    location.reload();
+                }
+            }, 2000);
+        }
+
+        // Initialize fade-in animations
+        window.addEventListener('load', () => {
+            document.querySelectorAll('.fade-in').forEach((el, index) => {
+                el.style.animationDelay = `${index * 0.15}s`;
+            });
+        });
+    </script>
 </body>
 </html>
